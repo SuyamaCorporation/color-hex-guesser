@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Hex Code Guessing Game</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col items-center p-6">
+  <div class="w-full max-w-lg">
+    <h1 class="text-3xl font-bold text-center mb-1 text-yellow-400">Color Hex Guesser</h1>
+    <p class="text-center text-gray-400 text-sm mb-6">Guess the hex code of the color shown</p>
+
+    <!-- Score bar -->
+    <div class="flex justify-between items-center mb-4 text-sm">
+      <span class="text-gray-400">Round <span id="round-num" class="text-white font-bold">1</span> / 10</span>
+      <span class="text-gray-400">Score: <span id="score-display" class="text-yellow-400 font-bold">0</span></span>
+      <span class="text-gray-400">Best: <span id="best-display" class="text-green-400 font-bold">—</span></span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="w-full bg-gray-800 rounded-full h-2 mb-6">
+      <div id="progress-bar" class="bg-yellow-400 h-2 rounded-full transition-all duration-500" style="width:10%"></div>
+    </div>
+
+    <!-- Color swatch -->
+    <div id="color-swatch" class="w-full h-48 rounded-xl mb-6 shadow-2xl transition-colors duration-300"></div>
+
+    <!-- Input area -->
+    <div id="input-section">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-xl text-gray-400 font-mono">#</span>
+        <input
+          id="hex-input"
+          type="text"
+          maxlength="6"
+          placeholder="RRGGBB"
+          class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-xl font-mono text-center uppercase tracking-widest focus:border-yellow-400 focus:outline-none transition-colors"
+        />
+      </div>
+
+      <!-- Live preview -->
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-xs text-gray-500">Your color:</span>
+        <div id="preview-swatch" class="w-8 h-8 rounded border border-gray-700 transition-colors"></div>
+        <span id="preview-label" class="text-xs font-mono text-gray-400">#------</span>
+      </div>
+
+      <button id="submit-btn"
+        class="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold rounded-lg text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        Submit Guess
+      </button>
+    </div>
+
+    <!-- Result section -->
+    <div id="result-section" class="hidden">
+      <!-- Comparison -->
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="text-center">
+          <div id="answer-swatch" class="w-full h-24 rounded-lg mb-2"></div>
+          <div class="text-xs text-gray-400">Actual</div>
+          <div id="answer-label" class="font-mono text-sm text-white"></div>
+        </div>
+        <div class="text-center">
+          <div id="guess-swatch" class="w-full h-24 rounded-lg mb-2"></div>
+          <div class="text-xs text-gray-400">Your Guess</div>
+          <div id="guess-label" class="font-mono text-sm text-white"></div>
+        </div>
+      </div>
+
+      <!-- Score breakdown -->
+      <div class="bg-gray-900 rounded-lg p-4 mb-4">
+        <div class="text-center text-3xl font-bold mb-2" id="round-score-display"></div>
+        <div class="grid grid-cols-3 gap-2 text-center text-xs mb-3">
+          <div>
+            <div class="text-red-400 font-bold" id="diff-r">R: —</div>
+            <div class="w-full bg-gray-800 rounded h-1 mt-1">
+              <div id="bar-r" class="bg-red-400 h-1 rounded transition-all" style="width:0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="text-green-400 font-bold" id="diff-g">G: —</div>
+            <div class="w-full bg-gray-800 rounded h-1 mt-1">
+              <div id="bar-g" class="bg-green-400 h-1 rounded transition-all" style="width:0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="text-blue-400 font-bold" id="diff-b">B: —</div>
+            <div class="w-full bg-gray-800 rounded h-1 mt-1">
+              <div id="bar-b" class="bg-blue-400 h-1 rounded transition-all" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="next-btn"
+        class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-lg transition-colors">
+        Next Color →
+      </button>
+    </div>
+
+    <!-- Game over section -->
+    <div id="gameover-section" class="hidden text-center">
+      <div class="text-4xl font-bold text-yellow-400 mb-2">Game Over!</div>
+      <div class="text-xl text-gray-300 mb-1">Final Score: <span id="final-score" class="text-white font-bold"></span> / 1000</div>
+      <div id="new-best-msg" class="text-green-400 font-semibold mb-4 hidden">New Best Score!</div>
+      <div id="round-summary" class="bg-gray-900 rounded-lg p-4 mb-6 text-left text-sm"></div>
+      <button id="restart-btn"
+        class="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold rounded-lg text-lg transition-colors">
+        Play Again
+      </button>
+    </div>
+  </div>
+
+<script>
+let targetColor = { r: 0, g: 0, b: 0 };
+let currentRound = 1;
+let totalScore = 0;
+let roundScores = [];
+let bestScore = parseInt(localStorage.getItem('colorHexBest') || '0');
+let gameActive = false;
+
+function updateBestDisplay() {
+  document.getElementById('best-display').textContent = bestScore > 0 ? bestScore : '—';
+}
+updateBestDisplay();
+
+function randomColor() {
+  return {
+    r: Math.floor(Math.random() * 256),
+    g: Math.floor(Math.random() * 256),
+    b: Math.floor(Math.random() * 256),
+  };
+}
+
+function toHex(n) {
+  return n.toString(16).padStart(2, '0').toUpperCase();
+}
+
+function colorToHex(c) {
+  return toHex(c.r) + toHex(c.g) + toHex(c.b);
+}
+
+function hexToColor(hex) {
+  const h = hex.replace('#', '').padEnd(6, '0');
+  return {
+    r: parseInt(h.substring(0, 2), 16) || 0,
+    g: parseInt(h.substring(2, 4), 16) || 0,
+    b: parseInt(h.substring(4, 6), 16) || 0,
+  };
+}
+
+function calcScore(target, guess) {
+  const dr = Math.abs(target.r - guess.r);
+  const dg = Math.abs(target.g - guess.g);
+  const db = Math.abs(target.b - guess.b);
+  const totalDiff = dr + dg + db;
+  const maxDiff = 255 * 3;
+  return { score: Math.round((1 - totalDiff / maxDiff) * 100), dr, dg, db };
+}
+
+function startGame() {
+  currentRound = 1;
+  totalScore = 0;
+  roundScores = [];
+  gameActive = true;
+  document.getElementById('gameover-section').classList.add('hidden');
+  document.getElementById('input-section').classList.remove('hidden');
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('hex-input').value = '';
+  startRound();
+}
+
+function startRound() {
+  targetColor = randomColor();
+  const hex = colorToHex(targetColor);
+  document.getElementById('color-swatch').style.backgroundColor = '#' + hex;
+  document.getElementById('round-num').textContent = currentRound;
+  document.getElementById('score-display').textContent = totalScore;
+  document.getElementById('progress-bar').style.width = (currentRound / 10 * 100) + '%';
+  document.getElementById('input-section').classList.remove('hidden');
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('hex-input').value = '';
+  document.getElementById('preview-swatch').style.backgroundColor = 'transparent';
+  document.getElementById('preview-label').textContent = '#------';
+  document.getElementById('hex-input').focus();
+}
+
+// Live preview
+document.getElementById('hex-input').addEventListener('input', (e) => {
+  const val = e.target.value.replace(/[^0-9a-fA-F]/g, '');
+  e.target.value = val;
+  if (val.length === 6) {
+    document.getElementById('preview-swatch').style.backgroundColor = '#' + val;
+    document.getElementById('preview-label').textContent = '#' + val.toUpperCase();
+  } else {
+    document.getElementById('preview-swatch').style.backgroundColor = 'transparent';
+    document.getElementById('preview-label').textContent = '#' + val.toUpperCase().padEnd(6, '-');
+  }
+});
+
+document.getElementById('hex-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('submit-btn').click();
+});
+
+document.getElementById('submit-btn').addEventListener('click', () => {
+  const val = document.getElementById('hex-input').value;
+  if (val.length !== 6) {
+    document.getElementById('hex-input').classList.add('border-red-500');
+    setTimeout(() => document.getElementById('hex-input').classList.remove('border-red-500'), 600);
+    return;
+  }
+  submitGuess(val);
+});
+
+function submitGuess(hexVal) {
+  const guess = hexToColor(hexVal);
+  const { score, dr, dg, db } = calcScore(targetColor, guess);
+  totalScore += score;
+  roundScores.push({ round: currentRound, target: colorToHex(targetColor), guess: hexVal.toUpperCase(), score });
+
+  document.getElementById('input-section').classList.add('hidden');
+  document.getElementById('result-section').classList.remove('hidden');
+
+  const targetHex = colorToHex(targetColor);
+  document.getElementById('answer-swatch').style.backgroundColor = '#' + targetHex;
+  document.getElementById('answer-label').textContent = '#' + targetHex;
+  document.getElementById('guess-swatch').style.backgroundColor = '#' + hexVal;
+  document.getElementById('guess-label').textContent = '#' + hexVal.toUpperCase();
+
+  const el = document.getElementById('round-score-display');
+  el.textContent = score + ' / 100';
+  if (score >= 90) { el.className = 'text-center text-3xl font-bold mb-2 text-green-400'; }
+  else if (score >= 70) { el.className = 'text-center text-3xl font-bold mb-2 text-yellow-400'; }
+  else { el.className = 'text-center text-3xl font-bold mb-2 text-red-400'; }
+
+  document.getElementById('diff-r').textContent = `R: ±${dr}`;
+  document.getElementById('diff-g').textContent = `G: ±${dg}`;
+  document.getElementById('diff-b').textContent = `B: ±${db}`;
+  document.getElementById('bar-r').style.width = (dr / 255 * 100) + '%';
+  document.getElementById('bar-g').style.width = (dg / 255 * 100) + '%';
+  document.getElementById('bar-b').style.width = (db / 255 * 100) + '%';
+
+  document.getElementById('score-display').textContent = totalScore;
+}
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  if (currentRound >= 10) {
+    endGame();
+  } else {
+    currentRound++;
+    startRound();
+  }
+});
+
+function endGame() {
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('input-section').classList.add('hidden');
+  document.getElementById('gameover-section').classList.remove('hidden');
+  document.getElementById('final-score').textContent = totalScore;
+
+  if (totalScore > bestScore) {
+    bestScore = totalScore;
+    localStorage.setItem('colorHexBest', bestScore);
+    updateBestDisplay();
+    document.getElementById('new-best-msg').classList.remove('hidden');
+  } else {
+    document.getElementById('new-best-msg').classList.add('hidden');
+  }
+
+  const summary = roundScores.map(r => {
+    const bar = '█'.repeat(Math.round(r.score / 10)) + '░'.repeat(10 - Math.round(r.score / 10));
+    return `<div class="flex items-center gap-2 mb-1">
+      <span class="text-gray-500 w-6">R${r.round}</span>
+      <span class="font-mono text-xs" style="color:#${r.target}">■</span>
+      <span class="font-mono text-xs text-gray-300">#${r.target}</span>
+      <span class="text-gray-500 text-xs">→</span>
+      <span class="font-mono text-xs" style="color:#${r.guess}">■</span>
+      <span class="font-mono text-xs text-gray-300">#${r.guess}</span>
+      <span class="text-xs font-mono text-gray-500 ml-auto">${r.score}pt</span>
+    </div>`;
+  }).join('');
+  document.getElementById('round-summary').innerHTML = summary;
+}
+
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Start on load
+startGame();
+</script>
+</body>
+</html>
